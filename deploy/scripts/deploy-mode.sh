@@ -116,26 +116,38 @@ deploy_mode_label() {
 }
 
 # -----------------------------------------------------------------------------
+# 函数：image_repo_prefix
+# 作用：返回镜像仓库前缀（registry/namespace）
+# 输出：例如 ccr.ccs.tencentyun.com/ccsite
+# -----------------------------------------------------------------------------
+image_repo_prefix() {
+  local registry namespace
+  registry="${IMAGE_REGISTRY:-ccr.ccs.tencentyun.com}"
+  namespace="${IMAGE_NAMESPACE:-ccsite}"
+  echo "${registry}/${namespace}"
+}
+
+# -----------------------------------------------------------------------------
 # 函数：deploy_mode_images
 # 作用：根据部署方式，列出需要构建/推送的 Docker 镜像完整名称
-# 参数：$1 = Docker Hub 用户名，$2 = 镜像标签（版本号）
-# 输出：每行一个镜像名，例如 xiaochongv587/cc-site-backend:1.0.0
+# 参数：$1 = 镜像仓库前缀（registry/namespace），$2 = 镜像标签（版本号）
+# 输出：每行一个镜像名，例如 ccr.ccs.tencentyun.com/ccsite/cc-site-backend:1.0.0
 # -----------------------------------------------------------------------------
 deploy_mode_images() {
-  local user="$1"
+  local prefix="$1"
   local tag="$2"
   case "${DEPLOY_MODE}" in
     split)
       # 分离式要处理 4 个 tag：backend 和 web 各两个（版本号 + latest）
-      echo "${user}/cc-site-backend:${tag}"
-      echo "${user}/cc-site-backend:latest"
-      echo "${user}/cc-site-web:${tag}"
-      echo "${user}/cc-site-web:latest"
+      echo "${prefix}/cc-site-backend:${tag}"
+      echo "${prefix}/cc-site-backend:latest"
+      echo "${prefix}/cc-site-web:${tag}"
+      echo "${prefix}/cc-site-web:latest"
       ;;
     bundle)
       # 一体式只处理 app 镜像
-      echo "${user}/cc-site-app:${tag}"
-      echo "${user}/cc-site-app:latest"
+      echo "${prefix}/cc-site-app:${tag}"
+      echo "${prefix}/cc-site-app:latest"
       ;;
   esac
 }

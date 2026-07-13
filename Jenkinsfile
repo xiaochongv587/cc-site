@@ -10,8 +10,8 @@
 // 【Jenkins 前置配置】
 //   1. Jenkins 容器挂载 /var/run/docker.sock，容器内安装 docker CLI + docker compose
 //   2. Credentials → Secret file，ID = cc-site-env-prod（内容为 deploy/.env.prod）
-//   3. Credentials → Username with password，ID = dockerhub-cred
-//      （Docker Hub 用户名 + Access Token，不是登录密码）
+//   3. Credentials → Username with password，ID = tcr-cred
+//      （腾讯云账号 ID + TCR 访问凭证，登录 ccr.ccs.tencentyun.com）
 //   4. 生产机数据目录：/data/mysql8、/data/attachment/ccsite
 //   5. agent label 须与 Jenkins 节点标签一致（当前 cc-one）
 //
@@ -37,7 +37,7 @@ pipeline {
         string(
             name: 'IMAGE_TAG',
             defaultValue: '1.0.0',
-            description: 'Docker Hub 镜像版本（与 GIT_REF 对应，如 1.0.0）'
+            description: '镜像版本（与 GIT_REF 对应，如 1.0.0）'
         )
         choice(
             name: 'DEPLOY_MODE',
@@ -47,13 +47,15 @@ pipeline {
         booleanParam(
             name: 'SKIP_BUILD',
             defaultValue: false,
-            description: '跳过构建和推送，仅部署 Docker Hub 上已有的镜像（用于回滚）'
+            description: '跳过构建和推送，仅部署镜像仓库上已有的镜像（用于回滚）'
         )
     }
 
     environment {
         DEPLOY_MODE = "${params.DEPLOY_MODE}"
         IMAGE_TAG = "${params.IMAGE_TAG}"
+        IMAGE_REGISTRY = 'ccr.ccs.tencentyun.com'
+        IMAGE_NAMESPACE = 'ccsite'
     }
 
     stages {
@@ -81,17 +83,18 @@ pipeline {
             steps {
                 withCredentials([
                     usernamePassword(
-                        credentialsId: 'dockerhub-cred',
-                        usernameVariable: 'DH_USER',
-                        passwordVariable: 'DH_TOKEN'
+                        credentialsId: 'tcr-cred',
+                        usernameVariable: 'TCR_USER',
+                        passwordVariable: 'TCR_TOKEN'
                     )
                 ]) {
                     sh '''
-                        echo "$DH_TOKEN" | docker login -u "$DH_USER" --password-stdin
+                        echo "$TCR_TOKEN" | docker login ccr.ccs.tencentyun.com -u "$TCR_USER" --password-stdin
 
                         export DEPLOY_MODE="${DEPLOY_MODE}"
                         export IMAGE_TAG="${IMAGE_TAG}"
-                        export DOCKERHUB_USER="${DH_USER}"
+                        export IMAGE_REGISTRY="${IMAGE_REGISTRY}"
+                        export IMAGE_NAMESPACE="${IMAGE_NAMESPACE}"
 
                         cd deploy
                         DEPLOY_ENV_FILE=/dev/null ./scripts/build.sh --${DEPLOY_MODE}

@@ -28,7 +28,7 @@ services:
       retries: 10
 
   backend:
-    image: ${DOCKERHUB_USER:-xiaochongv587}/cc-site-backend:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-ccr.ccs.tencentyun.com}/${IMAGE_NAMESPACE:-ccsite}/cc-site-backend:${IMAGE_TAG:-latest}
     build:
       context: ..
       dockerfile: deploy/images/backend/Dockerfile
@@ -58,7 +58,7 @@ services:
       start_period: 40s
 
   web:
-    image: ${DOCKERHUB_USER:-xiaochongv587}/cc-site-web:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-ccr.ccs.tencentyun.com}/${IMAGE_NAMESPACE:-ccsite}/cc-site-web:${IMAGE_TAG:-latest}
     build:
       context: ..
       dockerfile: deploy/images/web/Dockerfile

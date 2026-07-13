@@ -22,7 +22,7 @@ services:
       retries: 10
 
   app:
-    image: ${DOCKERHUB_USER:-xiaochongv587}/cc-site-app:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-ccr.ccs.tencentyun.com}/${IMAGE_NAMESPACE:-ccsite}/cc-site-app:${IMAGE_TAG:-latest}
     build:
       context: ..
       dockerfile: deploy/images/app/Dockerfile

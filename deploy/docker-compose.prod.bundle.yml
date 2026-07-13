@@ -22,7 +22,7 @@ services:
       retries: 10
 
   app:
-    image: ${DOCKERHUB_USER}/cc-site-app:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-ccr.ccs.tencentyun.com}/${IMAGE_NAMESPACE:-ccsite}/cc-site-app:${IMAGE_TAG:-latest}
     restart: unless-stopped
     ports:
       - "${WEB_PORT:-8080}:80"

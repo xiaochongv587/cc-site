@@ -102,15 +102,15 @@ deploy/
 
 可在 `.env.local` / `.env.prod` 中设置 `DEPLOY_MODE`，或在命令行指定 `--split` / `--bundle`。
 
-### 镜像清单（Docker Hub）
+### 镜像清单（腾讯云 TCR 个人版）
 
 | 镜像 | 用途 |
 |------|------|
-| `${DOCKERHUB_USER}/cc-site-backend:${TAG}` | Flask API（Gunicorn） |
-| `${DOCKERHUB_USER}/cc-site-web:${TAG}` | Nginx 静态 + API 反代 |
-| `${DOCKERHUB_USER}/cc-site-app:${TAG}` | 一体式（Nginx + Gunicorn） |
+| `ccr.ccs.tencentyun.com/ccsite/cc-site-backend:${TAG}` | Flask API（Gunicorn） |
+| `ccr.ccs.tencentyun.com/ccsite/cc-site-web:${TAG}` | Nginx 静态 + API 反代 |
+| `ccr.ccs.tencentyun.com/ccsite/cc-site-app:${TAG}` | 一体式（Nginx + Gunicorn） |
 
-默认版本见 `deploy/VERSION`（当前 `1.0.0`）。
+环境变量：`IMAGE_REGISTRY=ccr.ccs.tencentyun.com`，`IMAGE_NAMESPACE=ccsite`。默认版本见 `deploy/VERSION`（当前 `1.0.0`）。
 
 ### 1. 本地构建并运行
 
@@ -133,27 +133,19 @@ mkdir -p data/mysql data/uploads
 DEPLOY_MODE=bundle ./scripts/up-local.sh up -d --build
 ```
 
-### 2. 构建并推送到 Docker Hub
-
-运行 `./scripts/build.sh`、`./scripts/push.sh` 或 `./scripts/release.sh` 时会**交互提示**选择部署方式；也可直接指定：
+### 2. 构建并推送到腾讯云 TCR
 
 ```bash
-docker login
+# 登录 TCR（用户名 = 腾讯云账号 ID，密码在 TCR 控制台「访问凭证」获取）
+docker login ccr.ccs.tencentyun.com -u <账号ID> --password-stdin
 
 cd deploy
-cp .env.example .env.local   # 本地构建可读此文件
-cp .env.example .env.prod    # 推送/生产用
+cp .env.example .env.local
+cp .env.example .env.prod
 
-# 分离式：仅 backend + web
 ./scripts/build.sh --split
 ./scripts/push.sh --split
-
-# 一体式：仅 app
-./scripts/build.sh --bundle
-./scripts/push.sh --bundle
-
-# 一键构建 + 推送（会先询问或传 --split / --bundle）
-./scripts/release.sh --split
+# 或一键：DEPLOY_ENV_FILE=.env.prod ./scripts/release.sh --split
 ```
 
 非交互环境（CI / 脚本）请设置环境变量：`DEPLOY_MODE=split` 或 `DEPLOY_MODE=bundle`。
@@ -174,7 +166,7 @@ cp .env.example .env.prod    # 推送/生产用
 3. 验证：`./deploy/scripts/verify-docker.sh`（Pipeline 首阶段也会自动执行）
 4. 添加 Credentials：
    - **Secret file**，ID = `cc-site-env-prod`（上传 `deploy/.env.prod` 内容，含数据库密码等运行机密）
-   - **Username with password**，ID = `dockerhub-cred`（Docker Hub 用户名 + **Access Token**）
+   - **Username with password**，ID = `tcr-cred`（腾讯云账号 ID + TCR 访问凭证）
 5. `Jenkinsfile` 中 `agent { label 'cc-one' }` 须与 Jenkins 节点 Labels 一致
 6. 宿主机创建数据目录：`/data/mysql8`、`/data/attachment/ccsite`（与 `.env.prod` 一致）
 
@@ -182,7 +174,7 @@ cp .env.example .env.prod    # 推送/生产用
 
 | 阶段 | 所需变量 | 来源 |
 |------|----------|------|
-| 构建 / 推送 | `DOCKERHUB_USER`、`IMAGE_TAG`、`DEPLOY_MODE` | Pipeline 参数 + `dockerhub-cred` |
+| 构建 / 推送 | `IMAGE_REGISTRY`、`IMAGE_NAMESPACE`、`IMAGE_TAG`、`DEPLOY_MODE` | Pipeline 环境变量 + `tcr-cred` |
 | 部署 / 运行 | 完整 `.env.prod`（密钥、数据目录、端口等） | Jenkins Secret file `cc-site-env-prod` |
 
 部署时 Pipeline 会 `export IMAGE_TAG`，覆盖 Secret 文件中可能过期的版本号。
@@ -209,25 +201,23 @@ DEPLOY_ENV_FILE=.env.prod ./scripts/release.sh --split
 
 一体式部署：`.env.prod` 设 `DEPLOY_MODE=bundle`，或 Jenkins 参数选 `bundle`。
 
-### 4. GitHub Actions 自动发布（Docker Hub）
+### 4. GitHub Actions 自动发布（腾讯云 TCR）
 
 在 GitHub 仓库 Settings → Secrets 配置：
-- `DOCKERHUB_USERNAME` — Docker Hub 用户名
-- `DOCKERHUB_TOKEN` — Docker Hub Access Token
+- `TCR_USERNAME` — 腾讯云账号 ID
+- `TCR_PASSWORD` — TCR 访问凭证
 
-推送版本 tag 后自动构建并发布（tag 触发时发布全部镜像）：
+推送版本 tag 后自动构建并发布：
 
 ```bash
 git tag v1.0.0
 git push origin v1.0.0
 ```
 
-在 Actions 页面手动触发 **Publish Docker Images** 时，可选择 `split` / `bundle` / `all` 部署方式。
-
 发布后的镜像地址示例：
-- `xiaochongv587/cc-site-backend:1.0.0`
-- `xiaochongv587/cc-site-web:1.0.0`
-- `xiaochongv587/cc-site-app:1.0.0`
+- `ccr.ccs.tencentyun.com/ccsite/cc-site-backend:1.0.0`
+- `ccr.ccs.tencentyun.com/ccsite/cc-site-web:1.0.0`
+- `ccr.ccs.tencentyun.com/ccsite/cc-site-app:1.0.0`
 
 ### 架构说明
 
@@ -276,6 +266,6 @@ cc-site/
 - [ ] `deploy/.env.prod` 中 `SECRET_KEY`、`JWT_SECRET_KEY` 已改为强随机值
 - [ ] 已修改生产管理员密码与 MySQL 密码（`.env.prod`）
 - [ ] `deploy/.env.local` / `.env.prod` 未提交到仓库
-- [ ] `DOCKERHUB_USER` / `IMAGE_TAG` 与 `deploy/.env.prod` 一致
+- [ ] `IMAGE_REGISTRY` / `IMAGE_NAMESPACE` / `IMAGE_TAG` 与 `deploy/.env.prod` 一致
 - [ ] 反向代理/域名启用 HTTPS
 - [ ] 数据卷（`db_data` / `uploads_data`）已纳入备份策略

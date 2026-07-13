@@ -10,8 +10,8 @@ cp .env.example .env.prod    # 首次（手动 release 时读版本号）
 # 本地跑起来
 ./scripts/up-local.sh up -d --build
 
-# 可选：本地构建并推送到 Docker Hub（分离式）
-docker login
+# 可选：本地构建并推送到腾讯云 TCR（分离式）
+docker login ccr.ccs.tencentyun.com -u <腾讯云账号ID> --password-stdin
 DEPLOY_ENV_FILE=.env.prod ./scripts/release.sh --split
 ```
 
@@ -22,7 +22,7 @@ DEPLOY_ENV_FILE=.env.prod ./scripts/release.sh --split
 1. Jenkins 容器挂载 `/var/run/docker.sock`，容器内安装 `docker` CLI
 2. Jenkins Credentials：
    - Secret file `cc-site-env-prod` = 服务器上 `deploy/.env.prod` 内容
-   - Username/Password `dockerhub-cred` = Docker Hub 用户名 + Access Token
+   - Username/Password `tcr-cred` = 腾讯云账号 ID + TCR 访问凭证
 3. Pipeline Job 使用仓库根目录 `Jenkinsfile`，Agent label 为 `cc-one`
 
 **每次发布：**
@@ -34,7 +34,7 @@ DEPLOY_ENV_FILE=.env.prod ./scripts/release.sh --split
    - `DEPLOY_MODE` = `split`
    - `SKIP_BUILD` = `false`
 
-**Pipeline 自动执行：** `verify-docker` → `build.sh` → `push.sh` → `up-prod.sh pull` → `up-prod.sh up -d` → 健康检查
+**镜像地址：** `ccr.ccs.tencentyun.com/ccsite/cc-site-backend:1.0.0` 等
 
 **回滚（仅部署已有镜像）：** `SKIP_BUILD=true`，`IMAGE_TAG` 填上一稳定版本
 
