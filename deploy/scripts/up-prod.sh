@@ -11,7 +11,7 @@
 #
 # 【典型部署流程】
 #   cd deploy
-#   cp .env.prod.example .env.prod
+#   cp .env.example .env.prod
 #   # 编辑 .env.prod：改密码、域名、MYSQL_DATA_DIR 等
 #
 #   ./scripts/up-prod.sh pull    # 从 Docker Hub 拉取最新镜像

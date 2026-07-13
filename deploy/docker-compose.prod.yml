@@ -1,5 +1,5 @@
 # 生产部署：从 Docker Hub 拉取已发布镜像（不本地 build）
-# 用法：cd deploy && cp .env.prod.example .env.prod && ./scripts/up-prod.sh pull && ./scripts/up-prod.sh up -d
+# 用法：cd deploy && cp .env.example .env.prod && ./scripts/up-prod.sh pull && ./scripts/up-prod.sh up -d
 
 name: cc-site
 

@@ -15,7 +15,7 @@
 #   ./scripts/up-local.sh down             # 停止并删除容器
 #
 # 【首次使用前】
-#   cp .env.local.example .env.local
+#   cp .env.example .env.local
 #   mkdir -p data/mysql data/uploads
 #
 # 【参数说明】

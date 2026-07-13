@@ -1,5 +1,5 @@
 # 本地构建并运行（分离式：backend + web + MySQL）
-# 用法：cd deploy && cp .env.local.example .env.local && ./scripts/up-local.sh up -d --build
+# 用法：cd deploy && cp .env.example .env.local && ./scripts/up-local.sh up -d --build
 # 自定义宿主机挂载目录（三种方式，见 .env.example）：
 #   1. 在 deploy/.env 设置 MYSQL_DATA_DIR / UPLOADS_DATA_DIR
 #   2. 启动时临时指定：MYSQL_DATA_DIR=/data/mysql docker compose up -d

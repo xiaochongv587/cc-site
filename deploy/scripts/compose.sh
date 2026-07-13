@@ -48,7 +48,7 @@ esac
 
 # env 文件必须存在，否则无法启动（里面有机密、端口、数据库密码等）
 if [ ! -f "$ENV_FILE" ]; then
-  echo "错误：未找到 $ENV_FILE，请先执行: cp .env.${PROFILE}.example $ENV_FILE" >&2
+  echo "错误：未找到 $ENV_FILE，请先执行: cp .env.example $ENV_FILE" >&2
   exit 1
 fi
 

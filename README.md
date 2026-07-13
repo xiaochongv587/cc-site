@@ -82,8 +82,7 @@ deploy/
 ├── docker-compose.prod.yml         # 生产拉取（分离式）
 ├── docker-compose.bundle.yml       # 本地构建（一体式）
 ├── docker-compose.prod.bundle.yml  # 生产拉取（一体式）
-├── .env.local.example        # 本地部署模板 → 复制为 .env.local
-├── .env.prod.example         # 生产部署模板 → 复制为 .env.prod
+├── .env.example              # 环境变量模板 → 复制为 .env.local 或 .env.prod
 ├── VERSION                     # 镜像版本号
 ├── images/                     # Dockerfile（backend / web / app）
 ├── nginx/                      # Nginx 配置
@@ -119,7 +118,7 @@ deploy/
 
 ```bash
 cd deploy
-cp .env.local.example .env.local   # DEPLOY_MODE=split
+cp .env.example .env.local       # DEPLOY_MODE=split，并按需改本地路径/端口
 mkdir -p data/mysql data/uploads
 ./scripts/up-local.sh up -d --build
 ```
@@ -128,7 +127,7 @@ mkdir -p data/mysql data/uploads
 
 ```bash
 cd deploy
-cp .env.local.example .env.local
+cp .env.example .env.local
 # 编辑 .env.local：DEPLOY_MODE=bundle
 mkdir -p data/mysql data/uploads
 DEPLOY_MODE=bundle ./scripts/up-local.sh up -d --build
@@ -142,8 +141,8 @@ DEPLOY_MODE=bundle ./scripts/up-local.sh up -d --build
 docker login
 
 cd deploy
-cp .env.local.example .env.local
-cp .env.prod.example .env.prod
+cp .env.example .env.local   # 本地构建可读此文件
+cp .env.example .env.prod    # 推送/生产用
 
 # 分离式：仅 backend + web
 ./scripts/build.sh --split
@@ -159,29 +158,44 @@ cp .env.prod.example .env.prod
 
 非交互环境（CI / 脚本）请设置环境变量：`DEPLOY_MODE=split` 或 `DEPLOY_MODE=bundle`。
 
-### 3. 生产服务器拉取部署
+### 3. 生产部署（Jenkins Pipeline）
 
-**分离式：**
+**职责划分：**
+
+| 环境 | 做什么 | 命令 |
+|------|--------|------|
+| **本地** | 开发、本地运行、构建并 push 镜像 | `./scripts/up-local.sh`、`release.sh` |
+| **Jenkins** | 仅 pull + 启动（不 build） | 见仓库根目录 `Jenkinsfile` |
+
+**本地发布镜像到 Docker Hub：**
 
 ```bash
 cd deploy
-cp .env.prod.example .env.prod
-# 编辑 .env.prod：DEPLOY_MODE=split（默认）
+docker login
+DEPLOY_ENV_FILE=.env.prod ./scripts/release.sh --split
+```
+
+**Jenkins 配置（一次性）：**
+
+1. 新建 **Pipeline** Job，SCM 指向本仓库，脚本路径 `Jenkinsfile`
+2. Agent 在生产机，已安装 Docker + docker compose
+3. 添加 Credentials → **Secret file**，ID = `cc-site-env-prod`（上传 `deploy/.env.prod` 内容）
+4. 修改 `Jenkinsfile` 里 `agent { label 'prod' }` 为你的 Agent 标签
+
+**Jenkins 每次发布：** Build with Parameters → 填写 `IMAGE_TAG`（须与已 push 的版本一致，如 `1.0.0`）
+
+**手动部署（不用 Jenkins 时）：**
+
+```bash
+cd deploy
+cp .env.example .env.prod   # 首次
+# 编辑 .env.prod
 
 ./scripts/up-prod.sh pull
 ./scripts/up-prod.sh up -d
 ```
 
-**一体式：**
-
-```bash
-cd deploy
-cp .env.prod.example .env.prod
-# 编辑 .env.prod：DEPLOY_MODE=bundle
-
-DEPLOY_MODE=bundle ./scripts/up-prod.sh pull
-DEPLOY_MODE=bundle ./scripts/up-prod.sh up -d
-```
+一体式部署：`.env.prod` 设 `DEPLOY_MODE=bundle`，或 Jenkins 参数选 `bundle`。
 
 ### 4. GitHub Actions 自动发布（Docker Hub）
 
