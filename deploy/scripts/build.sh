@@ -82,12 +82,13 @@ build_one() {
   local name="$1"
   local dockerfile="$2"
   echo ">>> ${name} : ${USER}/${name}:${TAG}"
+  # -f: Dockerfile 路径；-t: 镜像标签；--build-arg: 传入 VERSION；末尾 . = 构建上下文（项目根）
   docker build \
-    -f "${dockerfile}" \                    # 指定 Dockerfile 路径
-    -t "${USER}/${name}:${TAG}" \           # 打标签：用户名/镜像名:版本号
-    -t "${USER}/${name}:latest" \           # 同时打 latest 标签（方便拉取最新版）
-    --build-arg "VERSION=${TAG}" \          # 传入构建参数，Dockerfile 里 ARG VERSION 可接收
-    .                                       # 构建上下文 = 当前目录（项目根）
+    -f "${dockerfile}" \
+    -t "${USER}/${name}:${TAG}" \
+    -t "${USER}/${name}:latest" \
+    --build-arg "VERSION=${TAG}" \
+    .
 }
 
 # ---------- 按部署方式构建 ----------
