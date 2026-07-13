@@ -151,7 +151,7 @@ cc-site/
 ├── frontend/          # React + Vite
 ├── backend/           # Flask
 ├── docs/screenshots/  # 页面UI参考
-├── docker-compose.yml
+├── deploy/                 # 容器部署（compose / Dockerfile / 脚本 / nginx）
 ├── start.sh
 └── README.md
 

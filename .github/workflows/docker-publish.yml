@@ -1,0 +1,108 @@
+name: Publish Docker Images
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Image tag (default: deploy/VERSION or git sha)'
+        required: false
+        default: ''
+      deploy_mode:
+        description: 'Deploy mode'
+        required: true
+        default: split
+        type: choice
+        options:
+          - split
+          - bundle
+          - all
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve image tag
+        id: meta
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG="${GITHUB_REF_NAME#v}"
+          elif [ -f deploy/VERSION ]; then
+            TAG="$(tr -d '[:space:]' < deploy/VERSION)"
+          else
+            TAG="${GITHUB_SHA::7}"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve deploy mode
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            MODE="${{ github.event.inputs.deploy_mode }}"
+          else
+            MODE="all"
+          fi
+          echo "mode=${MODE}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push backend
+        if: steps.mode.outputs.mode == 'split' || steps.mode.outputs.mode == 'all'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/images/backend/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/cc-site-backend:${{ steps.meta.outputs.tag }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/cc-site-backend:latest
+          build-args: VERSION=${{ steps.meta.outputs.tag }}
+
+      - name: Build and push web
+        if: steps.mode.outputs.mode == 'split' || steps.mode.outputs.mode == 'all'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/images/web/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/cc-site-web:${{ steps.meta.outputs.tag }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/cc-site-web:latest
+          build-args: VERSION=${{ steps.meta.outputs.tag }}
+
+      - name: Build and push app (bundle)
+        if: steps.mode.outputs.mode == 'bundle' || steps.mode.outputs.mode == 'all'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/images/app/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/cc-site-app:${{ steps.meta.outputs.tag }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/cc-site-app:latest
+          build-args: VERSION=${{ steps.meta.outputs.tag }}
+
+      - name: Summary
+        run: |
+          echo "### Published to Docker Hub (tag: ${{ steps.meta.outputs.tag }}, mode: ${{ steps.mode.outputs.mode }})" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.mode.outputs.mode }}" = "split" ] || [ "${{ steps.mode.outputs.mode }}" = "all" ]; then
+            echo "- \`${{ secrets.DOCKERHUB_USERNAME }}/cc-site-backend:${{ steps.meta.outputs.tag }}\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "- \`${{ secrets.DOCKERHUB_USERNAME }}/cc-site-web:${{ steps.meta.outputs.tag }}\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "${{ steps.mode.outputs.mode }}" = "bundle" ] || [ "${{ steps.mode.outputs.mode }}" = "all" ]; then
+            echo "- \`${{ secrets.DOCKERHUB_USERNAME }}/cc-site-app:${{ steps.meta.outputs.tag }}\`" >> "$GITHUB_STEP_SUMMARY"
+          fi

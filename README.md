@@ -72,17 +72,142 @@ npm run dev              # http://localhost:5173
 
 ---
 
-## Docker 部署（生产）
+## Docker 部署与镜像发布
 
-```bash
-cp .env.example .env      # 修改其中的密钥与数据库密码
-docker compose build
-docker compose up -d
+所有容器相关文件统一在 **`deploy/`** 目录：
+
+```
+deploy/
+├── docker-compose.yml              # 本地构建（分离式）
+├── docker-compose.prod.yml         # 生产拉取（分离式）
+├── docker-compose.bundle.yml       # 本地构建（一体式）
+├── docker-compose.prod.bundle.yml  # 生产拉取（一体式）
+├── .env.local.example        # 本地部署模板 → 复制为 .env.local
+├── .env.prod.example         # 生产部署模板 → 复制为 .env.prod
+├── VERSION                     # 镜像版本号
+├── images/                     # Dockerfile（backend / web / app）
+├── nginx/                      # Nginx 配置
+└── scripts/
+    ├── up-local.sh             # 本地：--env-file .env.local
+    ├── up-prod.sh              # 生产：--env-file .env.prod
+    ├── deploy-mode.sh          # 分离式 / 一体式选择
+    ├── build.sh / push.sh / release.sh
 ```
 
-架构：`Nginx(web:80)` 托管前端静态资源并反代 `/api`、`/uploads`、`/rss.xml` 到 `backend:7200(gunicorn)`，数据存于 `MySQL 8`。
+### 部署方式
 
-访问：http://localhost:8080 （端口由 `.env` 的 `WEB_PORT` 控制）。
+| 方式 | `DEPLOY_MODE` | 镜像 | Compose 文件 |
+|------|---------------|------|--------------|
+| **分离式** | `split`（默认） | `cc-site-backend` + `cc-site-web` | `docker-compose.yml` / `docker-compose.prod.yml` |
+| **一体式** | `bundle` | `cc-site-app` | `docker-compose.bundle.yml` / `docker-compose.prod.bundle.yml` |
+
+可在 `.env.local` / `.env.prod` 中设置 `DEPLOY_MODE`，或在命令行指定 `--split` / `--bundle`。
+
+### 镜像清单（Docker Hub）
+
+| 镜像 | 用途 |
+|------|------|
+| `${DOCKERHUB_USER}/cc-site-backend:${TAG}` | Flask API（Gunicorn） |
+| `${DOCKERHUB_USER}/cc-site-web:${TAG}` | Nginx 静态 + API 反代 |
+| `${DOCKERHUB_USER}/cc-site-app:${TAG}` | 一体式（Nginx + Gunicorn） |
+
+默认版本见 `deploy/VERSION`（当前 `1.0.0`）。
+
+### 1. 本地构建并运行
+
+**分离式（默认）：**
+
+```bash
+cd deploy
+cp .env.local.example .env.local   # DEPLOY_MODE=split
+mkdir -p data/mysql data/uploads
+./scripts/up-local.sh up -d --build
+```
+
+**一体式：**
+
+```bash
+cd deploy
+cp .env.local.example .env.local
+# 编辑 .env.local：DEPLOY_MODE=bundle
+mkdir -p data/mysql data/uploads
+DEPLOY_MODE=bundle ./scripts/up-local.sh up -d --build
+```
+
+### 2. 构建并推送到 Docker Hub
+
+运行 `./scripts/build.sh`、`./scripts/push.sh` 或 `./scripts/release.sh` 时会**交互提示**选择部署方式；也可直接指定：
+
+```bash
+docker login
+
+cd deploy
+cp .env.local.example .env.local
+cp .env.prod.example .env.prod
+
+# 分离式：仅 backend + web
+./scripts/build.sh --split
+./scripts/push.sh --split
+
+# 一体式：仅 app
+./scripts/build.sh --bundle
+./scripts/push.sh --bundle
+
+# 一键构建 + 推送（会先询问或传 --split / --bundle）
+./scripts/release.sh --split
+```
+
+非交互环境（CI / 脚本）请设置环境变量：`DEPLOY_MODE=split` 或 `DEPLOY_MODE=bundle`。
+
+### 3. 生产服务器拉取部署
+
+**分离式：**
+
+```bash
+cd deploy
+cp .env.prod.example .env.prod
+# 编辑 .env.prod：DEPLOY_MODE=split（默认）
+
+./scripts/up-prod.sh pull
+./scripts/up-prod.sh up -d
+```
+
+**一体式：**
+
+```bash
+cd deploy
+cp .env.prod.example .env.prod
+# 编辑 .env.prod：DEPLOY_MODE=bundle
+
+DEPLOY_MODE=bundle ./scripts/up-prod.sh pull
+DEPLOY_MODE=bundle ./scripts/up-prod.sh up -d
+```
+
+### 4. GitHub Actions 自动发布（Docker Hub）
+
+在 GitHub 仓库 Settings → Secrets 配置：
+- `DOCKERHUB_USERNAME` — Docker Hub 用户名
+- `DOCKERHUB_TOKEN` — Docker Hub Access Token
+
+推送版本 tag 后自动构建并发布（tag 触发时发布全部镜像）：
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+在 Actions 页面手动触发 **Publish Docker Images** 时，可选择 `split` / `bundle` / `all` 部署方式。
+
+发布后的镜像地址示例：
+- `xiaochongv587/cc-site-backend:1.0.0`
+- `xiaochongv587/cc-site-web:1.0.0`
+- `xiaochongv587/cc-site-app:1.0.0`
+
+### 架构说明
+
+分离式：`Nginx(web:80)` 托管前端并反代 `/api`、`/uploads`、`/rss.xml` 到 `backend:7200`；数据存于 `MySQL 8`。
+
+访问：http://localhost:8080 （端口由 `deploy/.env.local` 或 `.env.prod` 的 `WEB_PORT` 控制）。
 
 **数据持久化**：
 - `db_data` 卷 → MySQL 数据
@@ -108,24 +233,23 @@ cc-site/
 │   │   ├── api/        # auth / public / admin / feed 蓝图
 │   │   ├── models/     # User / Article / Project / Skill / Profile / Theme
 │   │   ├── config.py   extensions.py  seed.py  __init__.py
-│   ├── run.py  wsgi.py  requirements.txt  Dockerfile
+│   ├── run.py  wsgi.py  requirements.txt
 ├── frontend/           # React + Vite 前端
 │   ├── src/
 │   │   ├── api/  context/  components/  pages/  admin/
-│   ├── Dockerfile  nginx.conf  tailwind.config.js
+│   ├── tailwind.config.js  vite.config.js
+├── deploy/             # 容器部署（compose / Dockerfile / 脚本）
 ├── docs/screenshots/   # 页面 UI 参考
-├── docker-compose.yml  start.sh  README.md
+├── start.sh  README.md
 ```
 
 ---
 
 ## 上线前检查清单
 
-- [ ] 已将 `.env` 中的 `SECRET_KEY`、`JWT_SECRET_KEY` 改为强随机值
-- [ ] 已修改默认管理员密码 `ADMIN_PASSWORD`
-- [ ] 已修改 MySQL 的 root / 业务用户密码
-- [ ] `SITE_URL` 指向真实域名（影响 RSS / sitemap 链接）
-- [ ] `.env` 未提交到仓库（`.gitignore` 已忽略）
-- [ ] `docker compose build` 通过、容器健康
+- [ ] `deploy/.env.prod` 中 `SECRET_KEY`、`JWT_SECRET_KEY` 已改为强随机值
+- [ ] 已修改生产管理员密码与 MySQL 密码（`.env.prod`）
+- [ ] `deploy/.env.local` / `.env.prod` 未提交到仓库
+- [ ] `DOCKERHUB_USER` / `IMAGE_TAG` 与 `deploy/.env.prod` 一致
 - [ ] 反向代理/域名启用 HTTPS
 - [ ] 数据卷（`db_data` / `uploads_data`）已纳入备份策略

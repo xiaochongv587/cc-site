@@ -1,0 +1,6 @@
+.env
+.env.local
+.env.prod
+
+# 本地 Docker 绑定挂载数据（mysql / uploads）
+data/

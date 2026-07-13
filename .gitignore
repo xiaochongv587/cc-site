@@ -1,6 +1,10 @@
 # 环境变量与密钥
 .env
 **/.env
+deploy/.env
+deploy/.env.local
+deploy/.env.prod
+deploy/data/
 
 # Python
 backend/venv/

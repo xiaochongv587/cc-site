@@ -1,3 +1,8 @@
+# 生产部署：从 Docker Hub 拉取已发布镜像（不本地 build）
+# 用法：cd deploy && cp .env.prod.example .env.prod && ./scripts/up-prod.sh pull && ./scripts/up-prod.sh up -d
+
+name: cc-site
+
 services:
   db:
     image: mysql:8.0
@@ -9,7 +14,7 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-ccsitepass}
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
-      - db_data:/var/lib/mysql
+      - ${MYSQL_DATA_DIR:-mysql_data}:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD:-rootpass}"]
       interval: 10s
@@ -17,7 +22,7 @@ services:
       retries: 10
 
   backend:
-    build: ./backend
+    image: ${DOCKERHUB_USER}/cc-site-backend:${IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       FLASK_ENV: production
@@ -28,19 +33,26 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
       SITE_URL: ${SITE_URL:-http://localhost:8080}
     volumes:
-      - uploads_data:/app/uploads
+      - ${UPLOADS_DATA_DIR:-uploads_data}:/app/uploads
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:7200/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
 
   web:
-    build: ./frontend
+    image: ${DOCKERHUB_USER}/cc-site-web:${IMAGE_TAG:-latest}
     restart: unless-stopped
     ports:
       - "${WEB_PORT:-8080}:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
 volumes:
-  db_data:
-  uploads_data:
+  mysql_data: {}
+  uploads_data: {}
