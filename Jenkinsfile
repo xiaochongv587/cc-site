@@ -97,6 +97,7 @@ pipeline {
                         export IMAGE_NAMESPACE="${IMAGE_NAMESPACE}"
 
                         cd deploy
+                        # 构建阶段不读 .env.prod（含运行机密，此时尚未注入）；变量由 Pipeline export 提供
                         DEPLOY_ENV_FILE=/dev/null ./scripts/build.sh --${DEPLOY_MODE}
                         DEPLOY_ENV_FILE=/dev/null ./scripts/push.sh --${DEPLOY_MODE}
                     '''

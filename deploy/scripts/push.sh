@@ -22,11 +22,14 @@ source "${DIR}/deploy-mode.sh"
 resolve_deploy_mode "$@"
 
 ENV_FILE="${DEPLOY_ENV_FILE:-${DEPLOY_DIR}/.env.prod}"
-if [ -f "$ENV_FILE" ]; then
+if [ "${DEPLOY_ENV_FILE:-}" != "/dev/null" ] && [ -f "$ENV_FILE" ]; then
   set -a
   # shellcheck disable=SC1090
   source "$ENV_FILE"
   set +a
+  ENV_LABEL="${ENV_FILE}"
+else
+  ENV_LABEL="(Shell 环境变量，未读 env 文件)"
 fi
 
 VERSION="$(tr -d '[:space:]' < "${DEPLOY_DIR}/VERSION" 2>/dev/null || echo latest)"
@@ -39,7 +42,7 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "==> 推送到 ${REGISTRY} (${IMAGE_PREFIX}, tag: ${TAG}, $(deploy_mode_label), env: ${ENV_FILE})"
+echo "==> 推送到 ${REGISTRY} (${IMAGE_PREFIX}, tag: ${TAG}, $(deploy_mode_label), env: ${ENV_LABEL})"
 
 while IFS= read -r img; do
   if docker image inspect "$img" >/dev/null 2>&1; then

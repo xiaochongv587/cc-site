@@ -31,11 +31,14 @@ resolve_deploy_mode "$@"
 cd "$ROOT_DIR"
 
 ENV_FILE="${DEPLOY_ENV_FILE:-${DEPLOY_DIR}/.env.local}"
-if [ -f "$ENV_FILE" ]; then
+if [ "${DEPLOY_ENV_FILE:-}" != "/dev/null" ] && [ -f "$ENV_FILE" ]; then
   set -a
   # shellcheck disable=SC1090
   source "$ENV_FILE"
   set +a
+  ENV_LABEL="${ENV_FILE}"
+else
+  ENV_LABEL="(Shell 环境变量，未读 env 文件)"
 fi
 
 VERSION="$(tr -d '[:space:]' < "${DEPLOY_DIR}/VERSION" 2>/dev/null || echo latest)"
@@ -49,7 +52,7 @@ fi
 
 echo "==> 构建镜像（仓库: ${IMAGE_PREFIX}）"
 echo "    方式 : $(deploy_mode_label)"
-echo "    ENV  : ${ENV_FILE}"
+echo "    ENV  : ${ENV_LABEL}"
 echo "    TAG  : ${TAG}"
 echo ""
 
