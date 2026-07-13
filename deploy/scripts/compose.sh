@@ -34,7 +34,7 @@ cd "$DEPLOY_DIR"  # 切换到 deploy 目录，后续 docker compose 在此目录
 # 第一个参数必须是 local（本地）或 prod（生产）
 # ${1:?错误提示} 表示：没传参数就打印提示并退出
 PROFILE="${1:?用法: compose.sh <local|prod> [docker compose 参数...]}"
-shift  # shift：去掉第一个参数，剩下参数原样传给 docker compose（如 up -d --build）
+shift  # shift：去掉第一个参数，剩下参数原样传给 docker compose（如 up -d / ps / down）
 
 # 根据 local / prod 决定读哪个 env 文件
 case "$PROFILE" in
@@ -98,6 +98,7 @@ done
 
 # exec：用 docker compose 进程「替换」当前 shell 进程（脚本在此结束，不会继续往下跑）
 # --env-file：把 .env.local / .env.prod 里的变量注入 compose
+# $@ 剩余参数 ps 或 logs --tail=100，由 Docker Compose 内置子命令处理
 if [ "$has_compose_file" = true ]; then
   exec docker compose --env-file "$ENV_FILE" "$@"
 else

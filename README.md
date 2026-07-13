@@ -90,7 +90,7 @@ deploy/
     ├── up-local.sh             # 本地：--env-file .env.local
     ├── up-prod.sh              # 生产：--env-file .env.prod
     ├── deploy-mode.sh          # 分离式 / 一体式选择
-    ├── build.sh / push.sh / release.sh
+    ├── build.sh / push.sh / release.sh / verify-docker.sh
 ```
 
 ### 部署方式
@@ -158,41 +158,53 @@ cp .env.example .env.prod    # 推送/生产用
 
 非交互环境（CI / 脚本）请设置环境变量：`DEPLOY_MODE=split` 或 `DEPLOY_MODE=bundle`。
 
-### 3. 生产部署（Jenkins Pipeline）
+### 3. 生产部署（Jenkins 单机构建 + 发布）
 
-**职责划分：**
+**职责划分（单节点：Jenkins 与 cc-site 在同一台服务器）：**
 
-| 环境 | 做什么 | 命令 |
-|------|--------|------|
-| **本地** | 开发、本地运行、构建并 push 镜像 | `./scripts/up-local.sh`、`release.sh` |
-| **Jenkins** | 仅 pull + 启动（不 build） | 见仓库根目录 `Jenkinsfile` |
+| 环境 | 做什么 | 命令 / 入口 |
+|------|--------|-------------|
+| **本地** | 开发、本地运行；可选手动构建 push | `./scripts/up-local.sh`、`release.sh` |
+| **Jenkins** | checkout → 构建 → push → pull → 启动 | 仓库根目录 `Jenkinsfile` |
 
-**本地发布镜像到 Docker Hub：**
+**Jenkins 前置配置（一次性）：**
+
+1. 新建 **Pipeline** Job，SCM 指向本仓库，脚本路径 `Jenkinsfile`
+2. Jenkins 容器挂载宿主机 `/var/run/docker.sock`，容器内安装 `docker` CLI 与 `docker compose`
+3. 验证：`./deploy/scripts/verify-docker.sh`（Pipeline 首阶段也会自动执行）
+4. 添加 Credentials：
+   - **Secret file**，ID = `cc-site-env-prod`（上传 `deploy/.env.prod` 内容，含数据库密码等运行机密）
+   - **Username with password**，ID = `dockerhub-cred`（Docker Hub 用户名 + **Access Token**）
+5. `Jenkinsfile` 中 `agent { label 'cc-one' }` 须与 Jenkins 节点 Labels 一致
+6. 宿主机创建数据目录：`/data/mysql8`、`/data/attachment/ccsite`（与 `.env.prod` 一致）
+
+**`.env.prod` 不在代码库时的处理：**
+
+| 阶段 | 所需变量 | 来源 |
+|------|----------|------|
+| 构建 / 推送 | `DOCKERHUB_USER`、`IMAGE_TAG`、`DEPLOY_MODE` | Pipeline 参数 + `dockerhub-cred` |
+| 部署 / 运行 | 完整 `.env.prod`（密钥、数据目录、端口等） | Jenkins Secret file `cc-site-env-prod` |
+
+部署时 Pipeline 会 `export IMAGE_TAG`，覆盖 Secret 文件中可能过期的版本号。
+
+**Jenkins 每次发布：**
+
+1. 打 Git tag：`git tag v1.0.0 && git push origin v1.0.0`
+2. **Build with Parameters**：
+   - `GIT_REF` = `v1.0.0`（或 `main`、`refs/tags/v1.0.0`）
+   - `IMAGE_TAG` = `1.0.0`（与 tag 对应，去掉 `v` 前缀）
+   - `DEPLOY_MODE` = `split` 或 `bundle`
+   - `SKIP_BUILD` = `false`（回滚已有镜像时设为 `true`）
+
+**回滚：** `SKIP_BUILD=true`，`IMAGE_TAG` 填上一稳定版本，重新触发 Pipeline。
+
+**本地手动发布（可选，不用 Jenkins 时）：**
 
 ```bash
 cd deploy
 docker login
 DEPLOY_ENV_FILE=.env.prod ./scripts/release.sh --split
-```
-
-**Jenkins 配置（一次性）：**
-
-1. 新建 **Pipeline** Job，SCM 指向本仓库，脚本路径 `Jenkinsfile`
-2. Agent 在生产机，已安装 Docker + docker compose
-3. 添加 Credentials → **Secret file**，ID = `cc-site-env-prod`（上传 `deploy/.env.prod` 内容）
-4. 修改 `Jenkinsfile` 里 `agent { label 'prod' }` 为你的 Agent 标签
-
-**Jenkins 每次发布：** Build with Parameters → 填写 `IMAGE_TAG`（须与已 push 的版本一致，如 `1.0.0`）
-
-**手动部署（不用 Jenkins 时）：**
-
-```bash
-cd deploy
-cp .env.example .env.prod   # 首次
-# 编辑 .env.prod
-
-./scripts/up-prod.sh pull
-./scripts/up-prod.sh up -d
+./scripts/up-prod.sh pull && ./scripts/up-prod.sh up -d
 ```
 
 一体式部署：`.env.prod` 设 `DEPLOY_MODE=bundle`，或 Jenkins 参数选 `bundle`。
