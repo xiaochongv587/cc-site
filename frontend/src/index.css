@@ -1,0 +1,178 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============ 主题变量系统 ============ */
+/* 颜色以 "R G B" 空格分隔存储，便于 Tailwind 的 <alpha-value> 语法 */
+:root {
+  --theme-primary: 59 130 246;   /* #3B82F6 */
+  --theme-secondary: 99 102 241; /* #6366F1 */
+  --theme-accent: 245 158 11;    /* #F59E0B */
+  --theme-radius: 1rem;
+
+  --page-bg: 248 249 255;
+  --card-bg: 255 255 255;
+  --text-main: 17 24 39;
+  --text-muted: 107 114 128;
+  --border-color: 229 231 235;
+}
+
+.dark {
+  --page-bg: 10 12 24;
+  --card-bg: 22 25 42;
+  --text-main: 237 239 245;
+  --text-muted: 148 155 175;
+  --border-color: 42 46 66;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply font-sans antialiased;
+    background-color: rgb(var(--page-bg));
+    color: rgb(var(--text-main));
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  ::selection {
+    background: rgb(var(--theme-primary) / 0.2);
+  }
+}
+
+@layer components {
+  /* 玻璃质感卡片 */
+  .card-glass {
+    background: rgb(var(--card-bg) / 0.75);
+    @apply backdrop-blur-xl border shadow-glass;
+    border-color: rgb(var(--border-color) / 0.6);
+    border-radius: var(--theme-radius);
+  }
+
+  .card-solid {
+    background: rgb(var(--card-bg));
+    @apply border shadow-glass;
+    border-color: rgb(var(--border-color) / 0.7);
+    border-radius: var(--theme-radius);
+  }
+
+  /* 按钮 */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full
+      font-semibold text-white shadow-lg transition-all duration-300
+      hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0;
+    background-image: linear-gradient(
+      135deg,
+      rgb(var(--theme-primary)),
+      rgb(var(--theme-secondary))
+    );
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full
+      font-semibold transition-all duration-300 border
+      hover:-translate-y-0.5 backdrop-blur-md;
+    color: rgb(var(--theme-primary));
+    border-color: rgb(var(--theme-primary) / 0.35);
+    background: rgb(var(--card-bg) / 0.6);
+  }
+
+  /* 区块标题 */
+  .section-title {
+    @apply text-3xl sm:text-4xl font-extrabold tracking-tight;
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(
+      135deg,
+      rgb(var(--theme-primary)),
+      rgb(var(--theme-secondary))
+    );
+  }
+
+  /* 章节小标签（如 "What I Do"） */
+  .eyebrow {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold;
+    color: rgb(var(--theme-secondary));
+    background: rgb(var(--theme-secondary) / 0.1);
+  }
+
+  /* 技能进度条 */
+  .skill-bar {
+    @apply h-1.5 w-full rounded-full overflow-hidden;
+    background: rgb(var(--border-color));
+  }
+  .skill-bar > span {
+    @apply block h-full rounded-full;
+    background-image: linear-gradient(
+      90deg,
+      rgb(var(--theme-primary)),
+      rgb(var(--theme-secondary))
+    );
+  }
+
+  .muted {
+    color: rgb(var(--text-muted));
+  }
+
+  .input-field {
+    @apply w-full px-4 py-2.5 rounded-lg border outline-none transition
+      focus:ring-2;
+    background: rgb(var(--card-bg));
+    border-color: rgb(var(--border-color));
+    color: rgb(var(--text-main));
+  }
+  .input-field:focus {
+    border-color: rgb(var(--theme-primary));
+    --tw-ring-color: rgb(var(--theme-primary) / 0.25);
+  }
+}
+
+/* 隐藏滚动条但保留滚动能力（标签云等横向区域） */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Markdown 正文样式 */
+.prose-article {
+  color: rgb(var(--text-main));
+  line-height: 1.85;
+}
+.prose-article h1,
+.prose-article h2,
+.prose-article h3 {
+  @apply font-bold mt-8 mb-4;
+}
+.prose-article h1 { @apply text-3xl; }
+.prose-article h2 { @apply text-2xl; }
+.prose-article h3 { @apply text-xl; }
+.prose-article p { @apply my-4; }
+.prose-article ul { @apply list-disc pl-6 my-4; }
+.prose-article ol { @apply list-decimal pl-6 my-4; }
+.prose-article a { color: rgb(var(--theme-primary)); @apply underline; }
+.prose-article blockquote {
+  @apply border-l-4 pl-4 my-4 italic;
+  border-color: rgb(var(--theme-primary));
+  color: rgb(var(--text-muted));
+}
+.prose-article code:not(pre code) {
+  @apply px-1.5 py-0.5 rounded text-sm;
+  background: rgb(var(--theme-primary) / 0.1);
+  color: rgb(var(--theme-primary));
+}
+.prose-article pre {
+  @apply p-4 rounded-xl my-5 overflow-x-auto text-sm;
+  background: #0d1117;
+}
+.prose-article img { @apply rounded-xl my-4 max-w-full; }
+.prose-article table { @apply w-full my-4 border-collapse; }
+.prose-article th,
+.prose-article td {
+  @apply border px-3 py-2 text-left;
+  border-color: rgb(var(--border-color));
+}
