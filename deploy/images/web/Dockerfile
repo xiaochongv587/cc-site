@@ -7,7 +7,8 @@ LABEL org.opencontainers.image.title="cc-site-web-build" \
 
 WORKDIR /app
 COPY frontend/package*.json ./
-RUN npm ci
+RUN npm config set registry https://registry.npmmirror.com \
+    && npm ci
 COPY frontend/ ./
 RUN npm run build
 

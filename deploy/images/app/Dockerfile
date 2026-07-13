@@ -4,7 +4,8 @@ FROM node:22-alpine AS frontend-build
 
 WORKDIR /app
 COPY frontend/package*.json ./
-RUN npm ci
+RUN npm config set registry https://registry.npmmirror.com \
+    && npm ci
 COPY frontend/ ./
 RUN npm run build
 
@@ -16,7 +17,9 @@ LABEL org.opencontainers.image.title="cc-site-app" \
       org.opencontainers.image.version="${VERSION}"
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    PIP_INDEX_URL=https://mirrors.cloud.tencent.com/pypi/simple \
+    PIP_TRUSTED_HOST=mirrors.cloud.tencent.com
 
 WORKDIR /app
 
@@ -26,7 +29,8 @@ RUN apt-get update \
     && mkdir -p /app/uploads /var/log/nginx /run/nginx
 
 COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -U pip \
+    && pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ .
 COPY --from=frontend-build /app/dist /usr/share/nginx/html
