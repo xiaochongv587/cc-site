@@ -51,6 +51,7 @@ services:
     restart: unless-stopped
     ports:
       - "${WEB_PORT:-8080}:80"
+      - "${WEB_HTTPS_PORT:-8443}:443"
     volumes:
       - ${NGINX_EXTRA_CONF_DIR:-nginx-conf}:/etc/nginx/extra:ro
     depends_on:

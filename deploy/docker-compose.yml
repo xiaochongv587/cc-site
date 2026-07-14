@@ -67,6 +67,7 @@ services:
     restart: unless-stopped
     ports:
       - "${WEB_PORT:-8080}:80"
+      - "${WEB_HTTPS_PORT:-8443}:443"
     volumes:
       # 宿主机额外 nginx 配置目录（相对 deploy/ 或绝对路径，见 NGINX_EXTRA_CONF_DIR）
       # 注意：使用相对路径会依赖 compose/up 时的当前工作目录。

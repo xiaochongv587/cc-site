@@ -41,7 +41,7 @@ RUN rm -f /etc/nginx/conf.d/default.conf \
 COPY deploy/scripts/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-EXPOSE 80
+EXPOSE 80 443
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1/api/health')" || exit 1

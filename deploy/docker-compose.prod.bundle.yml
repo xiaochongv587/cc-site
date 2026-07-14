@@ -26,6 +26,7 @@ services:
     restart: unless-stopped
     ports:
       - "${WEB_PORT:-8080}:80"
+      - "${WEB_HTTPS_PORT:-8443}:443"
     environment:
       FLASK_ENV: production
       SECRET_KEY: ${SECRET_KEY}
