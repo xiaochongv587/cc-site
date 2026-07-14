@@ -5,10 +5,13 @@
 # 触发：push main 分支、push 任意 tag
 #
 # 前置（GitHub 仓库 Settings → Secrets and variables → Actions）：
-#   GITEE_TOKEN  — Gitee 私人令牌（仓库 write 权限）
-#   GITEE_REPO   — Gitee 仓库路径，格式 owner/repo，如 xiaochongv587/cc-site
+#   GITEE_USERNAME — Gitee 登录用户名（私人令牌所属账号）
+#   GITEE_TOKEN    — Gitee 私人令牌（勾选 projects 权限）
+#   GITEE_REPO     — 仓库路径 owner/repo，如 xiaochongv587/cc-site
+#                    不要填完整 URL，不要带 .git 后缀
 #
-# Gitee 侧需先创建同名空仓库（不要勾选 README 初始化，避免首次 push 冲突）。
+# Gitee 侧需先创建空仓库（不要勾选 README 初始化）。
+# 404 not found 常见原因：仓库不存在、GITEE_REPO 写错、令牌无权限、用户名与令牌不匹配。
 # =============================================================================
 
 name: Sync to Gitee
@@ -19,6 +22,7 @@ on:
       - main
     tags:
       - '*'
+  workflow_dispatch:
 
 concurrency:
   group: gitee-sync
@@ -34,21 +38,57 @@ jobs:
           fetch-depth: 0
 
       - name: Validate secrets
+        env:
+          GITEE_USERNAME: ${{ secrets.GITEE_USERNAME }}
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          GITEE_REPO: ${{ secrets.GITEE_REPO }}
         run: |
-          if [ -z "${{ secrets.GITEE_TOKEN }}" ] || [ -z "${{ secrets.GITEE_REPO }}" ]; then
-            echo "::error::请在 GitHub Secrets 中配置 GITEE_TOKEN 与 GITEE_REPO"
+          missing=()
+          [ -z "$GITEE_USERNAME" ] && missing+=("GITEE_USERNAME")
+          [ -z "$GITEE_TOKEN" ] && missing+=("GITEE_TOKEN")
+          [ -z "$GITEE_REPO" ] && missing+=("GITEE_REPO")
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::请在 GitHub Secrets 中配置: ${missing[*]}"
             exit 1
           fi
 
       - name: Push to Gitee
         env:
+          GITEE_USERNAME: ${{ secrets.GITEE_USERNAME }}
           GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
           GITEE_REPO: ${{ secrets.GITEE_REPO }}
         run: |
+          set -euo pipefail
+
+          # 规范化 GITEE_REPO：去掉 URL 前缀、.git、首尾斜杠
+          repo_path="${GITEE_REPO#https://gitee.com/}"
+          repo_path="${repo_path#http://gitee.com/}"
+          repo_path="${repo_path%.git}"
+          repo_path="${repo_path#/}"
+          repo_path="${repo_path%/}"
+
+          if ! [[ "$repo_path" =~ ^[^/]+/[^/]+$ ]]; then
+            echo "::error::GITEE_REPO 格式错误: '$GITEE_REPO'，应为 owner/repo（如 xiaochongv587/cc-site）"
+            exit 1
+          fi
+
+          gitee_url="https://${GITEE_USERNAME}:${GITEE_TOKEN}@gitee.com/${repo_path}.git"
+          echo "Target repository: gitee.com/${repo_path}"
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add gitee "$gitee_url"
 
-          git remote add gitee "https://oauth2:${GITEE_TOKEN}@gitee.com/${GITEE_REPO}.git"
+          echo "Checking remote access..."
+          if ! git ls-remote gitee HEAD >/dev/null 2>&1; then
+            echo "::error::无法访问 Gitee 仓库 gitee.com/${repo_path}"
+            echo "请逐项检查："
+            echo "  1. Gitee 上是否已创建该仓库（空仓库即可）"
+            echo "  2. GITEE_REPO 是否为 owner/repo，与 Gitee 仓库地址一致"
+            echo "  3. GITEE_USERNAME 是否为令牌所属 Gitee 账号"
+            echo "  4. GITEE_TOKEN 是否有效且勾选了 projects 写权限"
+            exit 1
+          fi
 
           if [ "${{ github.ref_type }}" = "tag" ]; then
             echo "Syncing tag: ${{ github.ref_name }}"
@@ -59,9 +99,15 @@ jobs:
           fi
 
       - name: Summary
+        env:
+          GITEE_REPO: ${{ secrets.GITEE_REPO }}
         run: |
+          repo_path="${GITEE_REPO#https://gitee.com/}"
+          repo_path="${repo_path%.git}"
+          repo_path="${repo_path#/}"
+          repo_path="${repo_path%/}"
           if [ "${{ github.ref_type }}" = "tag" ]; then
-            echo "### Synced tag \`${{ github.ref_name }}\` → Gitee \`${{ secrets.GITEE_REPO }}\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Synced tag \`${{ github.ref_name }}\` → Gitee \`${repo_path}\`" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "### Synced branch \`main\` → Gitee \`${{ secrets.GITEE_REPO }}\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Synced branch \`main\` → Gitee \`${repo_path}\`" >> "$GITHUB_STEP_SUMMARY"
           fi
