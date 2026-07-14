@@ -110,7 +110,13 @@ pipeline {
                 withCredentials([
                     file(credentialsId: 'cc-site-env-prod', variable: 'ENV_PROD_FILE')
                 ]) {
-                    sh 'cp "$ENV_PROD_FILE" deploy/.env.prod'
+                    sh '''
+                        # 写到 workspace 根目录，避免 deploy/.env.prod 被 root/docker 占用导致 Permission denied
+                        # 将生产环境变量文件（已保存在 Jenkins 凭据中心）复制到 Jenkins 工作目录，命名为 .jenkins.env.prod，仅当前用户可读写
+                        RUNTIME_ENV="${WORKSPACE}/.jenkins.env.prod"
+                        install -m 600 "$ENV_PROD_FILE" "$RUNTIME_ENV"
+                        echo "生产 env 已写入: ${RUNTIME_ENV}"
+                    '''
                 }
             }
         }
@@ -119,6 +125,7 @@ pipeline {
             steps {
                 dir('deploy') {
                     sh '''
+                        export DEPLOY_ENV_FILE="${WORKSPACE}/.jenkins.env.prod"
                         export DEPLOY_MODE="${DEPLOY_MODE}"
                         export IMAGE_TAG="${IMAGE_TAG}"
                         ./scripts/up-prod.sh pull
@@ -131,6 +138,7 @@ pipeline {
             steps {
                 dir('deploy') {
                     sh '''
+                        export DEPLOY_ENV_FILE="${WORKSPACE}/.jenkins.env.prod"
                         export DEPLOY_MODE="${DEPLOY_MODE}"
                         export IMAGE_TAG="${IMAGE_TAG}"
                         ./scripts/up-prod.sh up -d
@@ -142,7 +150,8 @@ pipeline {
         stage('Health check') {
             steps {
                 sh '''
-                    WEB_PORT=$(grep -E '^WEB_PORT=' deploy/.env.prod | tail -1 | cut -d= -f2- | tr -d '[:space:]')
+                    ENV_FILE="${WORKSPACE}/.jenkins.env.prod"
+                    WEB_PORT=$(grep -E '^WEB_PORT=' "$ENV_FILE" | tail -1 | cut -d= -f2- | tr -d '[:space:]')
                     WEB_PORT=${WEB_PORT:-8080}
                     for i in $(seq 1 30); do
                         if curl -fsS "http://127.0.0.1:${WEB_PORT}/api/health" | grep -q ok; then
