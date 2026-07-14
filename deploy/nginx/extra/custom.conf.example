@@ -1,0 +1,9 @@
+# 复制本文件为 *.conf（如 custom.conf）后生效。
+# 此目录挂载到容器 /etc/nginx/extra，片段会 include 进默认 server 块。
+# 可添加 location、add_header、limit_req 等，勿写完整 server { } 块。
+#
+# location /nginx-status {
+#     stub_status;
+#     allow 127.0.0.1;
+#     deny all;
+# }

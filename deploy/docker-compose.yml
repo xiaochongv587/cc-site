@@ -67,6 +67,9 @@ services:
     restart: unless-stopped
     ports:
       - "${WEB_PORT:-8080}:80"
+    volumes:
+      # 宿主机额外 nginx 配置目录（相对 deploy/ 或绝对路径，见 NGINX_EXTRA_CONF_DIR）
+      - ${NGINX_EXTRA_CONF_DIR:-./nginx/extra}:/etc/nginx/extra:ro
     depends_on:
       backend:
         condition: service_healthy
