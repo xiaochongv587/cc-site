@@ -24,6 +24,8 @@ services:
   backend:
     image: ${IMAGE_REGISTRY:-ccr.ccs.tencentyun.com}/${IMAGE_NAMESPACE:-ccsite}/cc-site-backend:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-8070}:7200"
     environment:
       FLASK_ENV: production
       SECRET_KEY: ${SECRET_KEY}

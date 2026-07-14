@@ -5,6 +5,7 @@ deploy/.env
 deploy/.env.local
 deploy/.env.prod
 deploy/data/
+.cursor/
 
 # Python
 backend/venv/

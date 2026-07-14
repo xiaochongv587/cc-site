@@ -149,21 +149,13 @@ pipeline {
 
         stage('Health check') {
             steps {
-                sh '''
-                    ENV_FILE="${WORKSPACE}/.jenkins.env.prod"
-                    WEB_PORT=$(grep -E '^WEB_PORT=' "$ENV_FILE" | tail -1 | cut -d= -f2- | tr -d '[:space:]')
-                    WEB_PORT=${WEB_PORT:-8080}
-                    for i in $(seq 1 30); do
-                        if curl -fsS "http://127.0.0.1:${WEB_PORT}/api/health" | grep -q ok; then
-                            echo "Health check passed on port ${WEB_PORT}"
-                            exit 0
-                        fi
-                        echo "Waiting for service... (${i}/30)"
-                        sleep 5
-                    done
-                    echo "Health check failed"
-                    exit 1
-                '''
+                dir('deploy') {
+                    sh '''
+                        export DEPLOY_ENV_FILE="${WORKSPACE}/.jenkins.env.prod"
+                        export DEPLOY_MODE="${DEPLOY_MODE}"
+                        ./scripts/health-check.sh
+                    '''
+                }
             }
         }
     }
