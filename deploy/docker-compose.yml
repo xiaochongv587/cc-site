@@ -70,7 +70,7 @@ services:
     volumes:
       # 宿主机额外 nginx 配置目录（相对 deploy/ 或绝对路径，见 NGINX_EXTRA_CONF_DIR）
       # 注意：使用相对路径会依赖 compose/up 时的当前工作目录。
-      - ${NGINX_EXTRA_CONF_DIR:-/nginx-conf}:/etc/nginx/extra:ro
+      - ${NGINX_EXTRA_CONF_DIR:-nginx-conf}:/etc/nginx/extra:ro
     depends_on:
       backend:
         condition: service_healthy

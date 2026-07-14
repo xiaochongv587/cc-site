@@ -1,0 +1,67 @@
+# =============================================================================
+# GitHub → Gitee 仓库同步
+# =============================================================================
+#
+# 触发：push main 分支、push 任意 tag
+#
+# 前置（GitHub 仓库 Settings → Secrets and variables → Actions）：
+#   GITEE_TOKEN  — Gitee 私人令牌（仓库 write 权限）
+#   GITEE_REPO   — Gitee 仓库路径，格式 owner/repo，如 xiaochongv587/cc-site
+#
+# Gitee 侧需先创建同名空仓库（不要勾选 README 初始化，避免首次 push 冲突）。
+# =============================================================================
+
+name: Sync to Gitee
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - '*'
+
+concurrency:
+  group: gitee-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate secrets
+        run: |
+          if [ -z "${{ secrets.GITEE_TOKEN }}" ] || [ -z "${{ secrets.GITEE_REPO }}" ]; then
+            echo "::error::请在 GitHub Secrets 中配置 GITEE_TOKEN 与 GITEE_REPO"
+            exit 1
+          fi
+
+      - name: Push to Gitee
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          GITEE_REPO: ${{ secrets.GITEE_REPO }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git remote add gitee "https://oauth2:${GITEE_TOKEN}@gitee.com/${GITEE_REPO}.git"
+
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "Syncing tag: ${{ github.ref_name }}"
+            git push gitee "${{ github.ref_name }}"
+          else
+            echo "Syncing branch: main"
+            git push gitee HEAD:main
+          fi
+
+      - name: Summary
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "### Synced tag \`${{ github.ref_name }}\` → Gitee \`${{ secrets.GITEE_REPO }}\`" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### Synced branch \`main\` → Gitee \`${{ secrets.GITEE_REPO }}\`" >> "$GITHUB_STEP_SUMMARY"
+          fi

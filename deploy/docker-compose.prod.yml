@@ -52,7 +52,7 @@ services:
     ports:
       - "${WEB_PORT:-8080}:80"
     volumes:
-      - ${NGINX_EXTRA_CONF_DIR:-/nginx-conf}:/etc/nginx/extra:ro
+      - ${NGINX_EXTRA_CONF_DIR:-nginx-conf}:/etc/nginx/extra:ro
     depends_on:
       backend:
         condition: service_healthy
