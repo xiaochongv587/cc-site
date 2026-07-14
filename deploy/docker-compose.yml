@@ -69,7 +69,8 @@ services:
       - "${WEB_PORT:-8080}:80"
     volumes:
       # 宿主机额外 nginx 配置目录（相对 deploy/ 或绝对路径，见 NGINX_EXTRA_CONF_DIR）
-      - ${NGINX_EXTRA_CONF_DIR:-./nginx/extra}:/etc/nginx/extra:ro
+      # 注意：使用相对路径会依赖 compose/up 时的当前工作目录。
+      - ${NGINX_EXTRA_CONF_DIR:-/nginx-conf}:/etc/nginx/extra:ro
     depends_on:
       backend:
         condition: service_healthy
@@ -77,4 +78,5 @@ services:
 # 未指定宿主机路径时使用的命名卷（MYSQL_DATA_DIR / UPLOADS_DATA_DIR 留空即生效）
 volumes:
   mysql_data: {}
-  uploads_data: {}  
+  uploads_data: {}
+  nginx-conf: {}
